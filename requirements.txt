@@ -1,0 +1,27 @@
+# Основные зависимости для SMM-системы с ИИ
+
+# OpenAI API (поддержка GPT-5 и DALL-E 3)
+openai>=1.50.0
+
+# VK API
+vk-api>=11.9.0
+
+# Telegram Bot API
+pyTelegramBotAPI>=4.14.0
+
+# HTTP запросы
+requests>=2.31.0
+
+# Переменные окружения
+python-dotenv>=1.0.0
+
+# Логирование
+loguru>=0.7.0
+
+# Типизация
+typing-extensions>=4.8.0
+
+# Тестирование
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0

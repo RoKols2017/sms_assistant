@@ -2,60 +2,42 @@
 
 # Testing
 
-## Базовые проверки
+## Что проверяется
 
-Проверка окружения:
+- app factory и регистрация routes;
+- регистрация/логин пользователя;
+- сохранение VK settings;
+- content workflow и graceful degradation при проблемах VK.
 
-```bash
-python test_env.py
-```
-
-Полный демонстрационный прогон:
-
-```bash
-python test.py
-```
-
-## Запуск тестов
-
-Через helper-скрипт:
+## Тесты
 
 ```bash
-python run_tests.py
+python -m pytest tests/ -v
 ```
 
-Напрямую через `pytest`:
+## Статическая проверка синтаксиса
 
 ```bash
-python -m pytest tests/ --cov=. --cov-report=html --cov-fail-under=80
+python -m compileall app config.py generators social_publishers social_stats
 ```
 
-## Что покрыто
+## Docker smoke-check
 
-- генерация текста;
-- генерация изображений;
-- VK publisher;
-- Telegram publisher;
-- сбор статистики;
-- интеграционный сценарий.
-
-## Команды разработки
+После настройки окружения:
 
 ```bash
-pip install -r requirements.txt
-pip install -e .
-flake8 .
-black .
+docker compose up --build
+docker compose logs -f web
 ```
 
-## Практика использования
+Дополнительно проверьте, что в логах `web` есть успешный `db upgrade`, а не откат на bootstrap-режим.
 
-- Перед изменениями конфигурации запускайте `test_env.py`.
-- Перед изменениями модулей прогоняйте релевантные тесты из `tests/`.
-- Перед крупными изменениями полезно запускать полный `pytest` с покрытием.
+## Текущее ограничение локального окружения агента
+
+В текущем рабочем окружении системный Python был без `pip`, поэтому во время этой сессии полноценный runtime-прогон Flask/pytest локально не выполнялся. Для проекта это компенсируется Docker-сценарием, который устанавливает зависимости внутри контейнера.
 
 ## See Also
 
-- [Getting Started](getting-started.md) — установка и первый запуск.
-- [Architecture](architecture.md) — какие модули покрываются тестами.
-- [Security](security.md) — что не должно попадать в логи и фикстуры.
+- [Getting Started](getting-started.md) — основной запуск.
+- [Configuration](configuration.md) — env-переменные для тестового и Docker запуска.
+- [Architecture](architecture.md) — какие слои покрываются тестами.

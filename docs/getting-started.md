@@ -2,62 +2,63 @@
 
 # Getting Started
 
-## Что понадобится
+## Требования
 
 | Что | Зачем |
 |-----|-------|
-| Python 3.8+ | Запуск проекта |
+| Docker + Docker Compose | Основной способ запуска |
 | OpenAI API key | Генерация текста и изображений |
-| VK token | Публикация и статистика VK |
-| Telegram bot token | Публикация и статистика Telegram |
+| VK user token | VK settings и автопостинг |
 
-## Установка
-
-```bash
-pip install -r requirements.txt
-```
-
-## Настройка окружения
+## Локальный запуск
 
 ```bash
 cp .env.example .env
-python test_env.py
+docker compose up --build
 ```
 
-После копирования `.env.example` заполните реальные значения токенов и идентификаторов.
+После старта:
 
-## Первый запуск
+1. Откройте `http://localhost:8000`.
+2. Зарегистрируйте пользователя.
+3. Войдите в dashboard.
+4. Заполните `VK settings`.
+5. Перейдите на страницу генерации поста.
+
+## Запуск на VPS
 
 ```bash
-python test.py
+git clone <repository-url>
+cd sms_assistant
+cp .env.example .env
+docker compose up -d --build
 ```
 
-Сценарий последовательно:
-
-1. Генерирует текст поста.
-2. Генерирует изображение.
-3. Публикует результат в VK и Telegram.
-4. Пытается собрать статистику по опубликованным материалам.
-
-## Если нужен только модульный запуск
+Полезные команды:
 
 ```bash
-python generators/text_gen.py
-python generators/image_gen.py
-python social_publishers/vk_publisher.py
-python social_publishers/telegram_publisher.py
-python social_stats/stats_collector.py
+docker compose logs -f web
+docker compose logs -f postgres
+docker compose ps
 ```
 
-## Что проверить при проблемах
+## Что делает bootstrap
 
-- Заполнен ли `.env`.
-- Доступны ли внешние API.
-- Нет ли ошибок в `test_env.py`.
-- Соответствуют ли токены нужным правам доступа.
+При старте `web` контейнера:
+
+1. entrypoint ждет готовности PostgreSQL;
+2. выполняет `flask --app wsgi.py db upgrade`;
+3. запускает Gunicorn на `0.0.0.0:8000`.
+
+## Первичная проверка
+
+- открывается страница логина;
+- регистрация сохраняет пользователя в PostgreSQL;
+- dashboard доступен после входа;
+- settings сохраняют `vk_api_key` и `vk_group_id`.
 
 ## See Also
 
-- [Configuration](configuration.md) — список переменных окружения и моделей.
-- [Testing](testing.md) — как запускать тесты и проверки.
-- [Security](security.md) — как безопасно хранить секреты.
+- [Configuration](configuration.md) — все env-переменные и `DATABASE_URL`.
+- [Architecture](architecture.md) — как устроен Flask app factory.
+- [Security](security.md) — ограничения VK token и правила работы с секретами.

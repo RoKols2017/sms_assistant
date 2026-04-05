@@ -2,59 +2,64 @@
 
 # Architecture
 
-## Обзор
+## Рабочая архитектура
 
-Текущий проект организован как небольшой Python-кодbase с разделением по зонам ответственности: генерация контента, публикация и сбор статистики. Для AI Factory в `.ai-factory/ARCHITECTURE.md` зафиксирована целевая архитектура `Microservices`, но фактическая кодовая база пока остается единым репозиторием.
+Проект реализован как Flask modular monolith. Это один web-сервис, который рендерит HTML через Jinja, хранит пользователей и настройки в PostgreSQL и переиспользует legacy-модули первой части как интеграционные адаптеры.
+
+## Ключевые слои
+
+| Слой | Ответственность |
+|------|-----------------|
+| `app/*/routes.py` | HTTP, формы, redirects, flash messages |
+| `app/services/*` | orchestration и бизнес-flow |
+| `app/models/*` | SQLAlchemy модели |
+| `generators/`, `social_publishers/`, `social_stats/` | legacy integration layer |
 
 ## Текущая структура
 
 ```text
 .
-|- generators/           # Генерация текста и изображений через OpenAI
-|- social_publishers/    # Публикация в VK и Telegram
-|- social_stats/         # Сбор статистики платформ
-|- tests/                # Unit и integration tests
-|- test.py               # Демонстрационный сценарий
-|- test_env.py           # Проверка конфигурации
-`- run_tests.py          # Помощник для запуска тестов
+|- app/
+|  |- auth/
+|  |- main/
+|  |- settings/
+|  |- content/
+|  |- stats/
+|  |- models/
+|  |- services/
+|  `- templates/
+|- generators/
+|- social_publishers/
+|- social_stats/
+|- docker/
+|- migrations/
+|- tests/
+|- Dockerfile
+|- docker-compose.yml
+`- wsgi.py
 ```
 
-## Ключевые модули
+## Важные решения
 
-| Путь | Ответственность |
-|------|-----------------|
-| `generators/text_gen.py` | Генерация текста поста |
-| `generators/image_gen.py` | Генерация изображения |
-| `social_publishers/vk_publisher.py` | Публикация в VK |
-| `social_publishers/telegram_publisher.py` | Публикация в Telegram |
-| `social_stats/stats_collector.py` | Получение статистики VK и Telegram |
+1. Flask app factory в `app/__init__.py`.
+2. SQLAlchemy + PostgreSQL как основной persistence layer.
+3. Flask-Login для сессий.
+4. Flask-WTF для форм и CSRF.
+5. Bootstrap через CDN без кастомного CSS.
 
-## Рабочий поток
+## VK integration boundary
 
-1. Генератор текста создает пост.
-2. Генератор изображений строит картинку по промпту.
-3. Публикаторы отправляют материал в выбранные платформы.
-4. Сборщик статистики читает метрики после публикации.
+- генерация текста и изображения не зависит от успешности VK posting;
+- VK publishing выполняется best-effort;
+- если VK token не имеет нужных прав, пользователь все равно получает сгенерированный контент;
+- subscriber count берется через `groups.getById(fields=members_count)` с fallback на `groups.getMembers`.
 
-## Практические правила
+## Почему не microservices
 
-- Не смешивать код генерации и код публикации в одном модуле.
-- Не хранить токены и секреты внутри исходников.
-- Ошибки внешних API обрабатывать локально в соответствующем модуле.
-- Общие сценарии запускать из `test.py` или отдельных orchestration-скриптов, а не через перекрестные импорты между платформенными адаптерами.
-
-## Целевое развитие
-
-Если проект будет расти, логичные сервисные границы уже видны:
-
-- генерация контента;
-- публикация в соцсети;
-- сбор и агрегация статистики.
-
-Подробные архитектурные правила для этого направления лежат в `.ai-factory/ARCHITECTURE.md`.
+Для учебного MVP с Flask, auth, PostgreSQL и Docker отдельные сервисы только усложнили бы разработку и деплой. Нужная граница здесь внутренняя: routes -> services -> models/integrations.
 
 ## See Also
 
-- [Configuration](configuration.md) — какие переменные нужны модулям.
-- [Testing](testing.md) — как проверять поведение модулей.
-- [Getting Started](getting-started.md) — базовый путь запуска проекта.
+- [Configuration](configuration.md) — env-модель приложения.
+- [Testing](testing.md) — что и как проверять.
+- [Security](security.md) — ограничения VK token и секретов.

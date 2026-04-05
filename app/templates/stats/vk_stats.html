@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}VK Stats{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="h4 mb-3">VK статистика</h1>
+    {% if stats.validation_message %}
+      <div class="alert alert-secondary">{{ stats.validation_message }}</div>
+    {% endif %}
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Группа</dt>
+      <dd class="col-sm-9">{{ stats.group_name or 'Не определена' }}</dd>
+
+      <dt class="col-sm-3">Подписчики</dt>
+      <dd class="col-sm-9">{{ stats.members_count if stats.members_count is not none else 'Нет данных' }}</dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

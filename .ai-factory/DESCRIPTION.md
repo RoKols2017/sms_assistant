@@ -14,6 +14,9 @@ Python application for generating social media content with OpenAI, publishing i
 ## Tech Stack
 - **Language:** Python 3.8+
 - **Runtime/Packaging:** `requirements.txt`
+- **Framework:** Flask
+- **Database:** PostgreSQL
+- **ORM:** Flask-SQLAlchemy / SQLAlchemy
 - **Testing:** `pytest`, `pytest-cov`, `pytest-mock`
 - **Logging:** `loguru`, standard `logging`
 - **External APIs:** OpenAI, VK API, Telegram Bot API
@@ -21,11 +24,13 @@ Python application for generating social media content with OpenAI, publishing i
 - **Configuration:** environment variables via `.env`
 
 ## Existing Structure
+- `app/` contains the Flask app factory, blueprints, services, and templates.
 - `generators/` contains content generation modules.
 - `social_publishers/` contains platform-specific publishing adapters.
 - `social_stats/` contains platform statistics collection.
 - `tests/` contains unit and integration tests.
-- `test.py`, `test_env.py`, and `run_tests.py` act as runnable entry points for demo, environment validation, and test execution.
+- `Dockerfile`, `docker-compose.yml`, and `docker/entrypoint.sh` provide containerized deployment for VPS.
+- `test.py`, `test_env.py`, and `run_tests.py` remain legacy/demo-oriented scripts pending further cleanup.
 
 ## Architecture Notes
 - Current architecture is a small modular monolith organized by responsibility.

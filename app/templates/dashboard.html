@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h1 class="h3 mb-2">Dashboard</h1>
+        <p class="text-muted mb-0">Добро пожаловать, {{ current_user.email }}.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">VK Settings</h2>
+        <p class="text-muted">Сохраните VK token и group id.</p>
+        <a class="btn btn-primary" href="{{ url_for('settings.index') }}">Открыть</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Post Generator</h2>
+        <p class="text-muted">Сгенерируйте текст и изображение.</p>
+        <a class="btn btn-primary" href="{{ url_for('content.generate') }}">Открыть</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">VK Stats</h2>
+        <p class="text-muted">Посмотрите число подписчиков и статус подключения.</p>
+        <a class="btn btn-primary" href="{{ url_for('stats.vk_stats') }}">Открыть</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

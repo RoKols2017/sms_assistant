@@ -1,12 +1,16 @@
-"""
-Модуль для генерации SMM-постов через OpenAI API
-Безопасная работа с переменными окружения
-"""
+"""Модуль для генерации SMM-постов через OpenAI API."""
+
+from __future__ import annotations
+
+import logging
+from typing import Optional
 
 import openai
-from typing import Optional
-from loguru import logger
+
 from config import config
+
+
+logger = logging.getLogger(__name__)
 
 
 class TextGenerator:
@@ -63,7 +67,10 @@ class TextGenerator:
         # Настройка клиента OpenAI (новый API)
         self.client = openai.OpenAI(api_key=self.openai_key)
         
-        logger.info(f"TextGenerator инициализирован для темы '{self.topic}' в тоне '{self.tone}' с моделью '{self.model}'")
+        logger.info(
+            "[TextGenerator.__init__] initialized extra=%s",
+            {"topic": self.topic, "tone": self.tone, "model": self.model},
+        )
     
     def generate_post(self) -> Optional[str]:
         """
@@ -73,7 +80,10 @@ class TextGenerator:
             Optional[str]: Сгенерированный текст поста или None в случае ошибки
         """
         try:
-            logger.info(f"Начинаем генерацию поста на тему '{self.topic}' в тоне '{self.tone}'")
+            logger.info(
+                "[TextGenerator.generate_post] start extra=%s",
+                {"topic": self.topic, "tone": self.tone, "model": self.model},
+            )
             
             prompt = f"Ты SMM-специалист, генерируй пост на тему {self.topic} в {self.tone} тоне"
             
@@ -89,45 +99,28 @@ class TextGenerator:
             )
             
             generated_text = response.choices[0].message.content.strip()
-            logger.success(f"Пост успешно сгенерирован, длина: {len(generated_text)} символов")
+            logger.info(
+                "[TextGenerator.generate_post] completed extra=%s",
+                {"length": len(generated_text), "model": self.model},
+            )
             return generated_text
             
         except openai.AuthenticationError as e:
             error_msg = f"Ошибка аутентификации OpenAI: {e}"
-            logger.error(error_msg)
+            logger.error("[TextGenerator.generate_post] authentication error extra=%s", {"error": str(e)})
             return None
         except openai.RateLimitError as e:
             error_msg = f"Превышен лимит запросов OpenAI: {e}"
-            logger.error(error_msg)
+            logger.error("[TextGenerator.generate_post] rate limit extra=%s", {"error": str(e)})
             return None
         except openai.APIError as e:
             error_msg = f"Ошибка OpenAI API: {e}"
-            logger.error(error_msg)
+            logger.error("[TextGenerator.generate_post] api error extra=%s", {"error": str(e)})
             return None
         except Exception as e:
             error_msg = f"Неожиданная ошибка при генерации текста: {e}"
-            logger.error(error_msg)
+            logger.exception(
+                "[TextGenerator.generate_post] unexpected error extra=%s",
+                {"error": str(e), "topic": self.topic},
+            )
             return None
-
-
-if __name__ == "__main__":
-    # Тестирование класса
-    print("Тестирование TextGenerator...")
-    
-    try:
-        generator = TextGenerator(
-            tone="дружелюбный",
-            topic="искусственный интеллект",
-            model="gpt-5"
-        )
-        
-        post = generator.generate_post()
-        if post:
-            print("Сгенерированный пост:")
-            print(post)
-        else:
-            print("Не удалось сгенерировать пост")
-    except ValueError as e:
-        print(f"Ошибка конфигурации: {e}")
-    except Exception as e:
-        print(f"Неожиданная ошибка: {e}")

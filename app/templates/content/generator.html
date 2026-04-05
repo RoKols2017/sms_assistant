@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Генерация поста{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="h4 mb-3">Генерация поста</h1>
+    <form method="post" class="mb-4">
+      {{ form.hidden_tag() }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          {{ form.tone.label(class="form-label") }}
+          {{ form.tone(class="form-control") }}
+          {% for error in form.tone.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-md-6">
+          {{ form.topic.label(class="form-label") }}
+          {{ form.topic(class="form-control") }}
+          {% for error in form.topic.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-12">
+          <div class="form-check">
+            {{ form.generate_image(class="form-check-input") }}
+            {{ form.generate_image.label(class="form-check-label") }}
+          </div>
+          <div class="form-check mt-2">
+            {{ form.auto_post_vk(class="form-check-input") }}
+            {{ form.auto_post_vk.label(class="form-check-label") }}
+          </div>
+        </div>
+        <div class="col-12">{{ form.submit(class="btn btn-primary") }}</div>
+      </div>
+    </form>
+
+    {% if result %}
+      <hr>
+      <h2 class="h5 mb-3">Результат</h2>
+      <div class="mb-3">
+        <label class="form-label">Сгенерированный текст</label>
+        <textarea class="form-control" rows="8" readonly>{{ result.generated_text }}</textarea>
+      </div>
+      {% if result.image_url %}
+        <div class="mb-3">
+          <label class="form-label">Сгенерированное изображение</label>
+          <div><img src="{{ result.image_url }}" alt="Generated image" class="img-fluid rounded border"></div>
+        </div>
+      {% endif %}
+      <div class="alert alert-secondary mb-0">
+        VK status: <strong>{{ result.vk_publish_status }}</strong>
+        {% if result.vk_publish_message %}<div class="mt-2">{{ result.vk_publish_message }}</div>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

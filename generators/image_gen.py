@@ -1,12 +1,16 @@
-"""
-Модуль для генерации изображений через DALL-E 3 API
-Безопасная работа с переменными окружения
-"""
+"""Модуль для генерации изображений через OpenAI Images API."""
+
+from __future__ import annotations
+
+import logging
+from typing import Optional
 
 import openai
-from typing import Optional
-from loguru import logger
+
 from config import config
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImageGenerator:
@@ -51,7 +55,10 @@ class ImageGenerator:
         # Настройка клиента OpenAI (новый API)
         self.client = openai.OpenAI(api_key=self.openai_key)
         
-        logger.info(f"ImageGenerator инициализирован с моделью '{self.model}'")
+        logger.info(
+            "[ImageGenerator.__init__] initialized extra=%s",
+            {"model": self.model},
+        )
     
     def generate_image(self, prompt: str) -> Optional[str]:
         """
@@ -73,7 +80,10 @@ class ImageGenerator:
             prompt = prompt[:1000]
         
         try:
-            logger.info(f"Начинаем генерацию изображения по промпту: {prompt[:100]}...")
+            logger.info(
+                "[ImageGenerator.generate_image] start extra=%s",
+                {"model": self.model, "prompt_preview": prompt[:80]},
+            )
             
             # Используем новый API OpenAI
             response = self.client.images.generate(
@@ -85,48 +95,32 @@ class ImageGenerator:
             )
             
             image_url = response.data[0].url
-            logger.success(f"Изображение успешно сгенерировано: {image_url}")
+            logger.info(
+                "[ImageGenerator.generate_image] completed extra=%s",
+                {"model": self.model, "has_url": bool(image_url)},
+            )
             return image_url
             
         except openai.AuthenticationError as e:
             error_msg = f"Ошибка аутентификации OpenAI: {e}"
-            logger.error(error_msg)
+            logger.error("[ImageGenerator.generate_image] authentication error extra=%s", {"error": str(e)})
             return None
         except openai.RateLimitError as e:
             error_msg = f"Превышен лимит запросов OpenAI: {e}"
-            logger.error(error_msg)
+            logger.error("[ImageGenerator.generate_image] rate limit extra=%s", {"error": str(e)})
             return None
         except openai.BadRequestError as e:
             error_msg = f"Неверный запрос к API: {e}"
-            logger.error(error_msg)
+            logger.error("[ImageGenerator.generate_image] bad request extra=%s", {"error": str(e)})
             return None
         except openai.APIError as e:
             error_msg = f"Ошибка OpenAI API: {e}"
-            logger.error(error_msg)
+            logger.error("[ImageGenerator.generate_image] api error extra=%s", {"error": str(e)})
             return None
         except Exception as e:
             error_msg = f"Неожиданная ошибка при генерации изображения: {e}"
-            logger.error(error_msg)
+            logger.exception(
+                "[ImageGenerator.generate_image] unexpected error extra=%s",
+                {"error": str(e), "model": self.model},
+            )
             return None
-
-
-if __name__ == "__main__":
-    # Тестирование класса
-    print("Тестирование ImageGenerator...")
-    
-    try:
-        generator = ImageGenerator(model="dall-e-3")
-        
-        # Тестовый промпт для генерации изображения
-        test_prompt = "Современный офис с сотрудниками, работающими за компьютерами, стиль минимализм"
-        
-        image_url = generator.generate_image(test_prompt)
-        if image_url:
-            print(f"Изображение успешно сгенерировано!")
-            print(f"URL: {image_url}")
-        else:
-            print("Не удалось сгенерировать изображение")
-    except ValueError as e:
-        print(f"Ошибка конфигурации: {e}")
-    except Exception as e:
-        print(f"Неожиданная ошибка: {e}")

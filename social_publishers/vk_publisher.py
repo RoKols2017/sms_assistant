@@ -1,11 +1,13 @@
-"""
-Модуль для публикации постов в ВКонтакте через VK API
-"""
-
-import vk_api
-import requests
-from typing import Optional, Dict, Any
 import logging
+from typing import Any, Dict, Optional
+
+import requests
+import vk_api
+
+from config import config
+
+
+logger = logging.getLogger(__name__)
 
 
 class VKPublisher:
@@ -13,7 +15,7 @@ class VKPublisher:
     Класс для публикации постов в ВКонтакте
     """
     
-    def __init__(self, access_token: str, group_id: int):
+    def __init__(self, access_token: str, group_id: int, api_version: Optional[str] = None, timeout: Optional[int] = None):
         """
         Инициализация публикатора ВК
         
@@ -23,14 +25,15 @@ class VKPublisher:
         """
         self.access_token = access_token
         self.group_id = group_id
+        self.api_version = api_version or config.vk_api_version
+        self.timeout = timeout or config.timeout
         
-        # Инициализация VK API
-        self.vk_session = vk_api.VkApi(token=access_token)
+        self.vk_session = vk_api.VkApi(token=access_token, api_version=self.api_version)
         self.vk = self.vk_session.get_api()
-        
-        # Настройка логирования
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        logger.info(
+            "[VKPublisher.__init__] initialized extra=%s",
+            {"group_id": self.group_id, "api_version": self.api_version, "timeout": self.timeout},
+        )
     
     def upload_image(self, image_url: str) -> Optional[str]:
         """
@@ -43,19 +46,22 @@ class VKPublisher:
             Optional[str]: Attachment строка для использования в посте или None в случае ошибки
         """
         try:
-            self.logger.info(f"Загрузка изображения: {image_url}")
+            logger.info(
+                "[VKPublisher.upload_image] start extra=%s",
+                {"group_id": self.group_id, "image_url": image_url, "api_version": self.api_version},
+            )
             
             # Получаем адрес сервера для загрузки
             upload_server = self.vk.photos.getWallUploadServer(group_id=self.group_id)
             upload_url = upload_server['upload_url']
             
             # Скачиваем изображение
-            response = requests.get(image_url)
+            response = requests.get(image_url, timeout=self.timeout)
             response.raise_for_status()
             
             # Загружаем на сервер ВК
             files = {'photo': ('image.jpg', response.content, 'image/jpeg')}
-            upload_response = requests.post(upload_url, files=files)
+            upload_response = requests.post(upload_url, files=files, timeout=self.timeout)
             upload_response.raise_for_status()
             
             upload_data = upload_response.json()
@@ -72,24 +78,49 @@ class VKPublisher:
             photo = photo_data[0]
             attachment = f"photo{photo['owner_id']}_{photo['id']}"
             
-            self.logger.info(f"Изображение успешно загружено: {attachment}")
+            logger.info(
+                "[VKPublisher.upload_image] completed extra=%s",
+                {"group_id": self.group_id, "attachment": attachment},
+            )
             return attachment
             
         except requests.RequestException as e:
-            error_msg = f"Ошибка при скачивании изображения: {e}"
-            self.logger.error(error_msg)
-            print(error_msg)
+            logger.error("[VKPublisher.upload_image] request error extra=%s", {"error": str(e), "group_id": self.group_id})
             return None
         except vk_api.exceptions.ApiError as e:
-            error_msg = f"Ошибка VK API при загрузке изображения: {e}"
-            self.logger.error(error_msg)
-            print(error_msg)
+            logger.error("[VKPublisher.upload_image] vk api error extra=%s", {"error": str(e), "group_id": self.group_id})
             return None
         except Exception as e:
-            error_msg = f"Неожиданная ошибка при загрузке изображения: {e}"
-            self.logger.error(error_msg)
-            print(error_msg)
+            logger.exception(
+                "[VKPublisher.upload_image] unexpected error extra=%s",
+                {"error": str(e), "group_id": self.group_id},
+            )
             return None
+
+    def probe_wall_upload_access(self) -> bool:
+        try:
+            logger.info(
+                "[VKPublisher.probe_wall_upload_access] start extra=%s",
+                {"group_id": self.group_id, "api_version": self.api_version},
+            )
+            self.vk.photos.getWallUploadServer(group_id=self.group_id)
+            logger.info(
+                "[VKPublisher.probe_wall_upload_access] completed extra=%s",
+                {"group_id": self.group_id, "result": True},
+            )
+            return True
+        except vk_api.exceptions.ApiError as e:
+            logger.warning(
+                "[VKPublisher.probe_wall_upload_access] vk api denied extra=%s",
+                {"group_id": self.group_id, "error": str(e)},
+            )
+            return False
+        except Exception as e:
+            logger.exception(
+                "[VKPublisher.probe_wall_upload_access] unexpected error extra=%s",
+                {"group_id": self.group_id, "error": str(e)},
+            )
+            return False
     
     def publish_post(self, text: str, image_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
@@ -103,7 +134,10 @@ class VKPublisher:
             Optional[Dict[str, Any]]: Данные опубликованного поста или None в случае ошибки
         """
         try:
-            self.logger.info(f"Публикация поста в группу {self.group_id}")
+            logger.info(
+                "[VKPublisher.publish_post] start extra=%s",
+                {"group_id": self.group_id, "has_image": bool(image_url), "api_version": self.api_version},
+            )
             
             attachments = []
             
@@ -113,7 +147,10 @@ class VKPublisher:
                 if attachment:
                     attachments.append(attachment)
                 else:
-                    self.logger.warning("Не удалось загрузить изображение, публикуем без него")
+                    logger.warning(
+                        "[VKPublisher.publish_post] image upload failed, continuing without image extra=%s",
+                        {"group_id": self.group_id},
+                    )
             
             # Публикуем пост
             post_data = self.vk.wall.post(
@@ -123,48 +160,18 @@ class VKPublisher:
                 from_group=1  # Публикация от имени группы
             )
             
-            self.logger.info(f"Пост успешно опубликован, ID: {post_data['post_id']}")
+            logger.info(
+                "[VKPublisher.publish_post] completed extra=%s",
+                {"group_id": self.group_id, "post_id": post_data.get('post_id')},
+            )
             return post_data
             
         except vk_api.exceptions.ApiError as e:
-            error_msg = f"Ошибка VK API при публикации: {e}"
-            self.logger.error(error_msg)
-            print(error_msg)
+            logger.error("[VKPublisher.publish_post] vk api error extra=%s", {"error": str(e), "group_id": self.group_id})
             return None
         except Exception as e:
-            error_msg = f"Неожиданная ошибка при публикации: {e}"
-            self.logger.error(error_msg)
-            print(error_msg)
+            logger.exception(
+                "[VKPublisher.publish_post] unexpected error extra=%s",
+                {"error": str(e), "group_id": self.group_id},
+            )
             return None
-
-
-if __name__ == "__main__":
-    # Тестирование класса
-    print("Тестирование VKPublisher...")
-    
-    # Замените на ваши реальные данные для тестирования
-    test_token = "your-vk-access-token-here"
-    test_group_id = 123456789  # ID вашей группы
-    
-    publisher = VKPublisher(
-        access_token=test_token,
-        group_id=test_group_id
-    )
-    
-    # Тестовый пост
-    test_text = "Тестовый пост от SMM-бота! 🤖"
-    test_image_url = "https://example.com/image.jpg"  # Замените на реальный URL
-    
-    # Публикация поста с изображением
-    result = publisher.publish_post(test_text, test_image_url)
-    if result:
-        print(f"Пост успешно опубликован! ID: {result.get('post_id')}")
-    else:
-        print("Не удалось опубликовать пост")
-    
-    # Публикация поста без изображения
-    result_text_only = publisher.publish_post("Пост только с текстом")
-    if result_text_only:
-        print(f"Текстовый пост опубликован! ID: {result_text_only.get('post_id')}")
-    else:
-        print("Не удалось опубликовать текстовый пост")

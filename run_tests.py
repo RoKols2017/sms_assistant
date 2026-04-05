@@ -1,5 +1,7 @@
-"""
-Скрипт для запуска тестов с покрытием кода
+"""Legacy pytest helper script.
+
+Preferred test execution for the Flask application remains `python -m pytest`.
+This wrapper is kept only for compatibility with the original repository.
 """
 
 import subprocess
@@ -86,4 +88,3 @@ if __name__ == "__main__":
     else:
         success = run_tests()
         sys.exit(0 if success else 1)
-

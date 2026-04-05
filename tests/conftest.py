@@ -2,9 +2,14 @@
 Конфигурация тестов
 """
 
-import pytest
 import os
 from unittest.mock import patch
+
+import pytest
+
+from app import create_app
+from app.config import TestConfig
+from app.extensions import db
 
 
 @pytest.fixture(autouse=True)
@@ -55,3 +60,27 @@ def mock_requests():
          patch('requests.post') as mock_post:
         yield mock_get, mock_post
 
+
+@pytest.fixture
+def app():
+    """Flask app fixture for web tests."""
+    application = create_app(TestConfig)
+    application.config.update(TESTING=True)
+
+    with application.app_context():
+        db.create_all()
+        yield application
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture
+def client(app):
+    """Flask test client."""
+    return app.test_client()
+
+
+@pytest.fixture
+def runner(app):
+    """Flask CLI runner."""
+    return app.test_cli_runner()

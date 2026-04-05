@@ -1,235 +1,55 @@
-# 🤖 SMM-система с ИИ
+# SMM Assistant
 
-Автоматизированная система для создания и публикации контента в социальных сетях с использованием искусственного интеллекта.
+> Flask-приложение для генерации SMM-постов, изображений и автопубликации в VK с хранением пользователей в PostgreSQL.
 
-## 🚀 Возможности
+Проект превращает первую часть учебного репозитория в веб-приложение: регистрация и вход, пользовательские VK-настройки, генерация контента через OpenAI и базовая VK-статистика в одном Docker-ready сервисе.
 
-- **Генерация текста** - создание SMM-постов с помощью GPT-5 (ChatGPT-5)
-- **Генерация изображений** - создание визуального контента с помощью DALL-E 3
-- **Публикация в VK** - автоматическая публикация в ВКонтакте
-- **Публикация в Telegram** - отправка сообщений в Telegram каналы
-- **Сбор статистики** - мониторинг метрик и аналитика
-- **Безопасность** - защищенная работа с API ключами
+## Быстрый старт
 
-## 📋 Требования
-
-- Python 3.8+
-- OpenAI API ключ
-- VK API токен
-- Telegram Bot токен
-
-## 🛠️ Установка
-
-1. **Клонируйте репозиторий:**
-```bash
-git clone <repository-url>
-cd PE7.2
-```
-
-2. **Установите зависимости:**
-```bash
-pip install -r requirements.txt
-```
-
-3. **Настройте переменные окружения:**
 ```bash
 cp .env.example .env
-# Отредактируйте .env файл с вашими API ключами
+docker compose up --build
 ```
 
-4. **Проверьте конфигурацию:**
-```bash
-python test_env.py
-```
+После запуска приложение доступно на `http://localhost:8000`.
 
-## 🔧 Конфигурация
+## Что умеет MVP
 
-Создайте файл `.env` в корне проекта:
+- **Регистрация и вход**: обычная сессионная auth на Flask.
+- **Пользовательские VK settings**: хранение token и group id в PostgreSQL.
+- **Генерация поста**: `tone`, `topic`, генерация текста и изображения.
+- **Автопостинг в VK**: выполняется best-effort и не ломает генерацию при отказе VK.
+- **VK Stats**: минимум число подписчиков группы.
 
-```bash
-# OpenAI API
-OPENAI_API_KEY=your_openai_key_here
-
-# VK API
-VK_TOKEN=your_vk_token_here
-VK_GROUP_ID=your_vk_group_id_here
-
-# Telegram Bot API
-TG_TOKEN=your_telegram_token_here
-TG_CHAT_ID=your_telegram_chat_id_here
-
-# Дополнительные настройки
-LOG_LEVEL=INFO
-MAX_RETRIES=3
-TIMEOUT=30
-
-# Модели OpenAI (опционально)
-OPENAI_TEXT_MODEL=gpt-5
-OPENAI_IMAGE_MODEL=dall-e-3
-```
-
-## 🚀 Использование
-
-### Быстрый старт
+## Docker Compose на VPS
 
 ```bash
-python test.py
+cp .env.example .env
+docker compose up -d --build
+docker compose logs -f web
 ```
 
-### Программное использование
+## Важная оговорка по VK
 
-```python
-from generators.text_gen import TextGenerator
-from generators.image_gen import ImageGenerator
-from social_publishers.vk_publisher import VKPublisher
-from social_publishers.telegram_publisher import TelegramPublisher
+Автопостинг в VK зависит от прав конкретного пользовательского token. По актуальной документации VK методы публикации на стену и загрузки wall photo требуют специальные права `wall` и `photos`, которые доступны не для каждого сценария. Если VK не разрешает публикацию, приложение все равно вернет сгенерированный текст и изображение, а пользователю покажет предупреждение.
 
-# Генерация контента
-text_gen = TextGenerator(tone="дружелюбный", topic="технологии", model="gpt-5")
-post_text = text_gen.generate_post()
+## Документация
 
-image_gen = ImageGenerator(model="dall-e-3")
-image_url = image_gen.generate_image("Современные технологии")
+| Руководство | Описание |
+|-------------|----------|
+| [Getting Started](docs/getting-started.md) | Локальный запуск и первый вход |
+| [Configuration](docs/configuration.md) | Env-переменные Flask, OpenAI и Postgres |
+| [Architecture](docs/architecture.md) | Структура Flask modular monolith |
+| [Testing](docs/testing.md) | Тесты, smoke-check и статические проверки |
+| [Security](docs/security.md) | Секреты, пароли и ограничения VK token |
 
-# Публикация
-vk_publisher = VKPublisher(access_token="your_token", group_id=123456)
-vk_publisher.publish_post(post_text, image_url)
+## Ключевые файлы
 
-telegram_publisher = TelegramPublisher(bot_token="your_token", chat_id="@channel")
-telegram_publisher.send_post(post_text, image_url)
-```
+- `wsgi.py` — WSGI entrypoint для Gunicorn.
+- `app/__init__.py` — Flask app factory.
+- `docker-compose.yml` — web + postgres.
+- `docker/entrypoint.sh` — ожидание БД и запуск `flask db upgrade`.
 
-## 📁 Структура проекта
+## Лицензия
 
-```
-PE7.2/
-├── .cursor/
-│   └── rules/
-│       └── project-rules.md
-├── generators/
-│   ├── text_gen.py          # Генерация текста
-│   └── image_gen.py         # Генерация изображений
-├── social_publishers/
-│   ├── vk_publisher.py      # Публикация в VK
-│   └── telegram_publisher.py # Публикация в Telegram
-├── social_stats/
-│   └── stats_collector.py   # Сбор статистики
-├── config.py                # Конфигурация
-├── test.py                  # Демонстрация
-├── test_env.py             # Тестирование окружения
-├── requirements.txt        # Зависимости
-├── .env                    # Переменные окружения
-├── .gitignore             # Игнорируемые файлы
-├── SECURITY.md            # Безопасность
-└── README.md              # Документация
-```
-
-## 🔒 Безопасность
-
-- ✅ API ключи хранятся в переменных окружения
-- ✅ Файл `.env` исключен из Git
-- ✅ Валидация входных данных
-- ✅ Логирование без секретных данных
-- ✅ Обработка ошибок API
-
-**⚠️ Важно:** Никогда не коммитьте файл `.env` в репозиторий!
-
-## 🧪 Тестирование
-
-### Проверка конфигурации
-```bash
-python test_env.py
-```
-
-### Тестирование модулей
-```bash
-python generators/text_gen.py
-python generators/image_gen.py
-python social_publishers/vk_publisher.py
-python social_publishers/telegram_publisher.py
-python social_stats/stats_collector.py
-```
-
-### Полная демонстрация
-```bash
-python test.py
-```
-
-## 🤖 Поддерживаемые модели
-
-### OpenAI GPT модели:
-- **GPT-5** (ChatGPT-5) - основная модель для генерации текста
-- **GPT-4o** - альтернативная модель (устаревшая)
-- **GPT-4o-mini** - быстрая модель для простых задач
-- **GPT-4-turbo** - мощная модель для сложных задач
-- **GPT-3.5-turbo** - экономичная модель
-
-### OpenAI DALL-E модели:
-- **DALL-E 3** - основная модель для генерации изображений
-- **DALL-E 2** - альтернативная модель (устаревшая)
-
-## 📊 Логирование
-
-Логи сохраняются в папке `logs/`:
-- `smm_system.log` - основные логи системы
-- Ротация: ежедневно
-- Хранение: 30 дней
-
-## 🛠️ Разработка
-
-### Установка для разработки
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
-
-### Запуск тестов
-```bash
-# Полное тестирование с покрытием кода
-python run_tests.py
-
-# Или напрямую через pytest
-python -m pytest tests/ --cov=. --cov-report=html --cov-fail-under=80
-
-# Конкретные тесты
-python run_tests.py --specific
-```
-
-### Линтинг
-```bash
-flake8 .
-black .
-```
-
-## 📈 Мониторинг
-
-Система автоматически отслеживает:
-- Успешность API запросов
-- Время выполнения операций
-- Ошибки и исключения
-- Использование ресурсов
-
-## 🤝 Поддержка
-
-При возникновении проблем:
-1. Проверьте файл `.env`
-2. Запустите `python test_env.py`
-3. Проверьте логи в `logs/`
-4. Создайте issue в репозитории
-
-## 📄 Лицензия
-
-MIT License - см. файл LICENSE для деталей.
-
-## 🔄 Обновления
-
-Для обновления системы:
-```bash
-git pull origin main
-pip install -r requirements.txt
-python test_env.py
-```
-
----
-
-**Создано с ❤️ для автоматизации SMM-процессов**
+MIT License.

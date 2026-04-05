@@ -1,6 +1,7 @@
-"""
-Тестирование переменных окружения и подключений к API
-Проверяет корректность конфигурации и доступность сервисов
+"""Legacy environment check script from part one.
+
+This file is preserved for script-era compatibility and manual diagnostics.
+It is not the runtime entrypoint of the Flask web application.
 """
 
 import os

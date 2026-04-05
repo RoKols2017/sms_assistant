@@ -1,6 +1,8 @@
-"""
-Демонстрационный файл для тестирования всех модулей SMM-системы
-Безопасная работа с переменными окружения
+"""Legacy demo script from part one.
+
+This file is not the Flask runtime entrypoint for the web application.
+Use `wsgi.py` / Docker Compose for the web app and keep this file only as
+an integration-style helper for the original script-based workflow.
 """
 
 import os

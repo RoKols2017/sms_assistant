@@ -30,7 +30,7 @@ class TextGenerator:
     - Обработка ошибок API
     """
     
-    def __init__(self, tone: str, topic: str, openai_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, tone: str, topic: str, openai_key: Optional[str] = None, model: Optional[str] = None, timeout: Optional[int] = None):
         """
         Инициализация генератора текста
         
@@ -54,6 +54,7 @@ class TextGenerator:
         self.topic = topic.strip()
         resolved_model = model or _configured_model('openai_text_model', 'gpt-5')
         self.model = resolved_model
+        self.timeout = timeout if timeout is not None else getattr(config, 'request_timeout', config.timeout)
         
         # Валидация модели
         valid_models = ["gpt-5", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
@@ -65,13 +66,19 @@ class TextGenerator:
             self.openai_key = openai_key
         else:
             self.openai_key = config.openai_api_key
-        
-        # Настройка клиента OpenAI (новый API)
-        self.client = openai.OpenAI(api_key=self.openai_key)
-        
+
+        if self.openai_key:
+            self.client = openai.OpenAI(api_key=self.openai_key, timeout=self.timeout)
+        else:
+            self.client = None
+            logger.warning(
+                "[TextGenerator.__init__] openai disabled extra=%s",
+                {"topic": self.topic, "model": self.model, "timeout": self.timeout},
+            )
+
         logger.info(
             "[TextGenerator.__init__] initialized extra=%s",
-            {"topic": self.topic, "tone": self.tone, "model": self.model},
+            {"topic": self.topic, "tone": self.tone, "model": self.model, "timeout": self.timeout},
         )
     
     def generate_post(self) -> Optional[str]:
@@ -81,15 +88,25 @@ class TextGenerator:
         Returns:
             Optional[str]: Сгенерированный текст поста или None в случае ошибки
         """
+        if self.client is None:
+            logger.warning(
+                "[TextGenerator.generate_post] skipped missing openai key extra=%s",
+                {"topic": self.topic, "model": self.model},
+            )
+            return None
+
         try:
             logger.info(
                 "[TextGenerator.generate_post] start extra=%s",
-                {"topic": self.topic, "tone": self.tone, "model": self.model},
+                {"topic": self.topic, "tone": self.tone, "model": self.model, "timeout": self.timeout},
             )
             
             prompt = f"Ты SMM-специалист, генерируй пост на тему {self.topic} в {self.tone} тоне"
             
-            # Используем новый API OpenAI
+            logger.info(
+                "[TextGenerator.generate_post] requesting openai completion extra=%s",
+                {"topic": self.topic, "model": self.model, "timeout": self.timeout},
+            )
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -106,21 +123,17 @@ class TextGenerator:
                 {"length": len(generated_text), "model": self.model},
             )
             return generated_text
-            
+
         except openai.AuthenticationError as e:
-            error_msg = f"Ошибка аутентификации OpenAI: {e}"
             logger.error("[TextGenerator.generate_post] authentication error extra=%s", {"error": str(e)})
             return None
         except openai.RateLimitError as e:
-            error_msg = f"Превышен лимит запросов OpenAI: {e}"
             logger.error("[TextGenerator.generate_post] rate limit extra=%s", {"error": str(e)})
             return None
         except openai.APIError as e:
-            error_msg = f"Ошибка OpenAI API: {e}"
             logger.error("[TextGenerator.generate_post] api error extra=%s", {"error": str(e)})
             return None
         except Exception as e:
-            error_msg = f"Неожиданная ошибка при генерации текста: {e}"
             logger.exception(
                 "[TextGenerator.generate_post] unexpected error extra=%s",
                 {"error": str(e), "topic": self.topic},

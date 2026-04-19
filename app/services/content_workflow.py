@@ -66,6 +66,7 @@ class ContentWorkflowService:
 
             vk_warning = None
             if auto_post_vk:
+                vk_image_url = image_url
                 if not settings or not settings.vk_api_key or not settings.vk_group_id:
                     generated_post.vk_publish_status = "skipped"
                     generated_post.vk_publish_message = "VK settings are missing."
@@ -74,26 +75,29 @@ class ContentWorkflowService:
                     generated_post.vk_publish_status = "skipped"
                     generated_post.vk_publish_message = "VK group access validation failed."
                     vk_warning = "Контент успешно сгенерирован, но автопостинг в VK пропущен: нет доступа к группе VK."
-                elif generate_image and settings.can_upload_wall_photo is False:
-                    generated_post.vk_publish_status = "skipped"
-                    generated_post.vk_publish_message = "VK photo upload capability is unavailable for this token."
-                    vk_warning = (
-                        "Контент успешно сгенерирован, но автопостинг в VK с изображением пропущен: для token недоступна wall photo upload capability."
-                    )
                 elif settings.can_post_to_wall is False:
                     generated_post.vk_publish_status = "skipped"
                     generated_post.vk_publish_message = "VK group settings indicate posting to wall is disabled."
                     vk_warning = "Контент успешно сгенерирован, но автопостинг в VK пропущен: в настройках группы публикация на стену недоступна."
                 else:
+                    if generate_image and settings.can_upload_wall_photo is False:
+                        vk_image_url = None
+                        vk_warning = (
+                            "Контент успешно сгенерирован и опубликован в VK без изображения: для token недоступна загрузка wall photo."
+                        )
                     publish_result = self.vk_service.publish_post(
                         token=settings.vk_api_key,
                         group_id=settings.vk_group_id,
                         text=post_text,
-                        image_url=image_url,
+                        image_url=vk_image_url,
                     )
                     if publish_result and publish_result.get("post_id") is not None:
                         generated_post.vk_publish_status = "published"
-                        generated_post.vk_publish_message = "Пост опубликован в VK."
+                        generated_post.vk_publish_message = (
+                            "Пост опубликован в VK без изображения."
+                            if image_url and vk_image_url is None
+                            else "Пост опубликован в VK."
+                        )
                         generated_post.vk_post_id = int(publish_result["post_id"])
                     else:
                         generated_post.vk_publish_status = "failed"

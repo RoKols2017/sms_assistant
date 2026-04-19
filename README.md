@@ -30,9 +30,38 @@ docker compose up -d --build
 docker compose logs -f web
 ```
 
+Для production обязательно задайте как минимум:
+
+- `FLASK_SECRET_KEY`
+- `DATABASE_URL`
+- `TRUST_PROXY_COUNT` если приложение стоит за Nginx/Caddy/другим reverse proxy
+
+После старта контейнер `web` должен:
+
+1. дождаться PostgreSQL;
+2. выполнить `flask --app wsgi.py db upgrade`;
+3. поднять Gunicorn;
+4. отвечать `200 OK` на `GET /healthz`.
+
+Типичные полезные логи `web` контейнера:
+
+- `[entrypoint] waiting for database availability`
+- `[entrypoint] database ready ...`
+- `[entrypoint] database migrations finished`
+- `[entrypoint] starting gunicorn ...`
+- `[main.healthz] completed ...`
+
+Если startup падает, первым делом проверьте `docker compose logs -f web` на ошибки про `FLASK_SECRET_KEY`, `DATABASE_URL`, миграции или недоступную БД.
+
 ## Важная оговорка по VK
 
-Автопостинг в VK зависит от прав конкретного пользовательского token. По актуальной документации VK методы публикации на стену и загрузки wall photo требуют специальные права `wall` и `photos`, которые доступны не для каждого сценария. Если VK не разрешает публикацию, приложение все равно вернет сгенерированный текст и изображение, а пользователю покажет предупреждение.
+Для разных VK-сценариев нужны разные типы токенов:
+
+- `group/community token` подходит только для части server-side сценариев и может не дать загрузить изображение на стену;
+- `user access token` нужен для полноценного автопостинга с изображением;
+- наличие scope `wall, photos` само по себе не гарантирует успех: важен еще тип токена и реальные права пользователя в сообществе.
+
+Если токен подходит только для текста, приложение опубликует пост без изображения и покажет предупреждение вместо полного отказа.
 
 ## Документация
 
@@ -40,6 +69,7 @@ docker compose logs -f web
 |-------------|----------|
 | [Getting Started](docs/getting-started.md) | Локальный запуск и первый вход |
 | [Configuration](docs/configuration.md) | Env-переменные Flask, OpenAI и Postgres |
+| [VK Integration](docs/vk-integration.md) | Какие VK токены нужны и почему |
 | [Architecture](docs/architecture.md) | Структура Flask modular monolith |
 | [Testing](docs/testing.md) | Тесты, smoke-check и статические проверки |
 | [Security](docs/security.md) | Секреты, пароли и ограничения VK token |

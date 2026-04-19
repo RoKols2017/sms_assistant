@@ -29,7 +29,7 @@ class ImageGenerator:
     - Обработка ошибок API
     """
     
-    def __init__(self, openai_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, openai_key: Optional[str] = None, model: Optional[str] = None, timeout: Optional[int] = None):
         """
         Инициализация генератора изображений
         
@@ -42,6 +42,7 @@ class ImageGenerator:
         """
         resolved_model = model or _configured_model('openai_image_model', 'dall-e-3')
         self.model = resolved_model
+        self.timeout = timeout if timeout is not None else getattr(config, 'request_timeout', config.timeout)
         
         # Валидация модели
         valid_models = ["dall-e-3", "dall-e-2"]
@@ -53,13 +54,19 @@ class ImageGenerator:
             self.openai_key = openai_key
         else:
             self.openai_key = config.openai_api_key
-        
-        # Настройка клиента OpenAI (новый API)
-        self.client = openai.OpenAI(api_key=self.openai_key)
-        
+
+        if self.openai_key:
+            self.client = openai.OpenAI(api_key=self.openai_key, timeout=self.timeout)
+        else:
+            self.client = None
+            logger.warning(
+                "[ImageGenerator.__init__] openai disabled extra=%s",
+                {"model": self.model, "timeout": self.timeout},
+            )
+
         logger.info(
             "[ImageGenerator.__init__] initialized extra=%s",
-            {"model": self.model},
+            {"model": self.model, "timeout": self.timeout},
         )
     
     def generate_image(self, prompt: str) -> Optional[str]:
@@ -80,14 +87,24 @@ class ImageGenerator:
         if len(prompt) > 1000:
             logger.warning("Промпт слишком длинный, обрезаем до 1000 символов")
             prompt = prompt[:1000]
-        
+
+        if self.client is None:
+            logger.warning(
+                "[ImageGenerator.generate_image] skipped missing openai key extra=%s",
+                {"model": self.model},
+            )
+            return None
+
         try:
             logger.info(
                 "[ImageGenerator.generate_image] start extra=%s",
-                {"model": self.model, "prompt_preview": prompt[:80]},
+                {"model": self.model, "prompt_preview": prompt[:80], "timeout": self.timeout},
             )
-            
-            # Используем новый API OpenAI
+
+            logger.info(
+                "[ImageGenerator.generate_image] requesting openai image extra=%s",
+                {"model": self.model, "timeout": self.timeout},
+            )
             response = self.client.images.generate(
                 model=self.model,
                 prompt=prompt,
@@ -102,25 +119,20 @@ class ImageGenerator:
                 {"model": self.model, "has_url": bool(image_url)},
             )
             return image_url
-            
+
         except openai.AuthenticationError as e:
-            error_msg = f"Ошибка аутентификации OpenAI: {e}"
             logger.error("[ImageGenerator.generate_image] authentication error extra=%s", {"error": str(e)})
             return None
         except openai.RateLimitError as e:
-            error_msg = f"Превышен лимит запросов OpenAI: {e}"
             logger.error("[ImageGenerator.generate_image] rate limit extra=%s", {"error": str(e)})
             return None
         except openai.BadRequestError as e:
-            error_msg = f"Неверный запрос к API: {e}"
             logger.error("[ImageGenerator.generate_image] bad request extra=%s", {"error": str(e)})
             return None
         except openai.APIError as e:
-            error_msg = f"Ошибка OpenAI API: {e}"
             logger.error("[ImageGenerator.generate_image] api error extra=%s", {"error": str(e)})
             return None
         except Exception as e:
-            error_msg = f"Неожиданная ошибка при генерации изображения: {e}"
             logger.exception(
                 "[ImageGenerator.generate_image] unexpected error extra=%s",
                 {"error": str(e), "model": self.model},

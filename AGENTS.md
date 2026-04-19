@@ -60,6 +60,7 @@ Python project for generating SMM content with OpenAI, publishing it to VK and T
 | README | `README.md` | Project landing page |
 | Getting Started | `docs/getting-started.md` | Local and VPS startup |
 | Configuration | `docs/configuration.md` | Flask, OpenAI, and Postgres env |
+| VK Integration | `docs/vk-integration.md` | VK token types and requirements |
 | Architecture | `docs/architecture.md` | Flask modular monolith structure |
 | Testing | `docs/testing.md` | Tests and smoke-check commands |
 | Security | `docs/security.md` | Secrets and VK token caveats |

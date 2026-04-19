@@ -42,4 +42,5 @@ docker compose logs -f web
 
 - [Getting Started](getting-started.md) — основной запуск.
 - [Configuration](configuration.md) — env-переменные для тестового и Docker запуска.
+- [VK Integration](vk-integration.md) — какие VK capability нужно проверять вручную.
 - [Architecture](architecture.md) — какие слои покрываются тестами.

@@ -20,6 +20,7 @@ class StatsCollector:
         vk_access_token: Optional[str] = None,
         telegram_bot_token: Optional[str] = None,
         api_version: Optional[str] = None,
+        timeout: Optional[int] = None,
     ):
         """
         Инициализация сборщика статистики
@@ -31,23 +32,27 @@ class StatsCollector:
         self.vk_access_token = vk_access_token
         self.telegram_bot_token = telegram_bot_token
         self.api_version = api_version or config.vk_api_version
-        
-        # Инициализация VK API если токен предоставлен
+        self.timeout = timeout if timeout is not None else getattr(config, "request_timeout", config.timeout)
+
         if vk_access_token:
             self.vk_session = vk_api.VkApi(token=vk_access_token, api_version=self.api_version)
             self.vk = self.vk_session.get_api()
         else:
             self.vk = None
-        
-        # Инициализация Telegram бота если токен предоставлен
+
         if telegram_bot_token:
             self.bot = telebot.TeleBot(telegram_bot_token)
         else:
             self.bot = None
-        
+
         logger.info(
             "[StatsCollector.__init__] initialized extra=%s",
-            {"has_vk": bool(vk_access_token), "has_telegram": bool(telegram_bot_token), "api_version": self.api_version},
+            {
+                "has_vk": bool(vk_access_token),
+                "has_telegram": bool(telegram_bot_token),
+                "api_version": self.api_version,
+                "timeout": self.timeout,
+            },
         )
 
     def _extract_group(self, payload: Any) -> Optional[Dict[str, Any]]:
@@ -108,6 +113,10 @@ class StatsCollector:
             return int(group_info["members_count"])
 
         try:
+            logger.info(
+                "[StatsCollector.get_group_members_count] fallback groups.getMembers start extra=%s",
+                {"group_id": group_id},
+            )
             payload = self.vk.groups.getMembers(group_id=group_id, count=1)
             members_count = payload.get("count") if isinstance(payload, dict) else None
             logger.info(
@@ -148,20 +157,18 @@ class StatsCollector:
                 "[StatsCollector.get_vk_stats] start extra=%s",
                 {"group_id": group_id, "post_id": post_id},
             )
-            
-            # Получаем информацию о посте
+
             post_info = self.vk.wall.getById(
                 posts=f"-{group_id}_{post_id}",
                 extended=1
             )
-            
+
             if not post_info or not post_info[0]:
                 logger.warning("[StatsCollector.get_vk_stats] post not found extra=%s", {"group_id": group_id, "post_id": post_id})
                 return None
-            
+
             post = post_info[0]
-            
-            # Извлекаем статистику
+
             stats = {
                 'post_id': post_id,
                 'group_id': group_id,
@@ -172,13 +179,13 @@ class StatsCollector:
                 'text': post.get('text', ''),
                 'date': post.get('date', 0)
             }
-            
+
             logger.info(
                 "[StatsCollector.get_vk_stats] completed extra=%s",
                 {"group_id": group_id, "post_id": post_id},
             )
             return stats
-            
+
         except vk_api.exceptions.ApiError as e:
             logger.error("[StatsCollector.get_vk_stats] vk api error extra=%s", {"group_id": group_id, "post_id": post_id, "error": str(e)})
             return None
@@ -209,21 +216,18 @@ class StatsCollector:
                 "[StatsCollector.get_telegram_stats] start extra=%s",
                 {"chat_id": chat_id, "message_id": message_id},
             )
-            
-            # Получаем информацию о сообщении
+
             message = self.bot.get_chat(chat_id)
-            
-            # Для каналов получаем статистику через get_chat_member_count
+
             member_count = 0
             try:
                 member_count = self.bot.get_chat_member_count(chat_id)
             except Exception as e:
                 logger.warning(
                     "[StatsCollector.get_telegram_stats] member count unavailable extra=%s",
-                    {"chat_id": chat_id, "error": str(e)},
+                        {"chat_id": chat_id, "error": str(e)},
                 )
-            
-            # Базовые метрики для Telegram
+
             stats = {
                 'message_id': message_id,
                 'chat_id': chat_id,
@@ -232,23 +236,20 @@ class StatsCollector:
                 'member_count': member_count,
                 'is_channel': message.type == 'channel' if hasattr(message, 'type') else False
             }
-            
-            # Для каналов пытаемся получить дополнительную статистику
+
             if stats['is_channel']:
                 try:
-                    # Получаем информацию о последних сообщениях для оценки активности
-                    # Это приблизительная оценка, так как Telegram API ограничен
                     stats['estimated_reach'] = member_count
                     stats['engagement_rate'] = 0.0  # Telegram не предоставляет точные метрики
                 except Exception as e:
                     logger.warning("[StatsCollector.get_telegram_stats] channel metrics unavailable extra=%s", {"chat_id": chat_id, "error": str(e)})
-            
+
             logger.info(
                 "[StatsCollector.get_telegram_stats] completed extra=%s",
                 {"chat_id": chat_id, "message_id": message_id},
             )
             return stats
-            
+
         except telebot.apihelper.ApiTelegramException as e:
             logger.error("[StatsCollector.get_telegram_stats] telegram api error extra=%s", {"chat_id": chat_id, "message_id": message_id, "error": str(e)})
             return None
@@ -260,7 +261,7 @@ class StatsCollector:
             return None
     
     def get_combined_stats(self, vk_post_id: Optional[int] = None, vk_group_id: Optional[int] = None,
-                          telegram_message_id: Optional[int] = None, telegram_chat_id: Optional[str] = None) -> Dict[str, Any]:
+                           telegram_message_id: Optional[int] = None, telegram_chat_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Получает комбинированную статистику из всех доступных источников
         
@@ -273,20 +274,32 @@ class StatsCollector:
         Returns:
             Dict[str, Any]: Словарь с комбинированной статистикой
         """
+        logger.info(
+            "[StatsCollector.get_combined_stats] start extra=%s",
+            {
+                "has_vk_request": bool(vk_post_id and vk_group_id),
+                "has_telegram_request": bool(telegram_message_id and telegram_chat_id),
+            },
+        )
         combined_stats = {
             'timestamp': None,
             'vk_stats': None,
             'telegram_stats': None
         }
-        
-        # Получаем статистику ВК
+
         if vk_post_id and vk_group_id:
             vk_stats = self.get_vk_stats(vk_post_id, vk_group_id)
             combined_stats['vk_stats'] = vk_stats
-        
-        # Получаем статистику Telegram
+
         if telegram_message_id and telegram_chat_id:
             telegram_stats = self.get_telegram_stats(telegram_message_id, telegram_chat_id)
             combined_stats['telegram_stats'] = telegram_stats
-        
+
+        logger.info(
+            "[StatsCollector.get_combined_stats] completed extra=%s",
+            {
+                "has_vk_stats": combined_stats['vk_stats'] is not None,
+                "has_telegram_stats": combined_stats['telegram_stats'] is not None,
+            },
+        )
         return combined_stats

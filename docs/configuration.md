@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
+[← Getting Started](getting-started.md) · [Back to README](../README.md) · [VK Integration →](vk-integration.md)
 
 # Configuration
 
@@ -13,9 +13,13 @@
 | `OPENAI_TEXT_MODEL` | Модель генерации текста |
 | `OPENAI_IMAGE_MODEL` | Модель генерации изображений |
 | `LOG_LEVEL` | Уровень логирования |
-| `TIMEOUT` | Таймаут внешних запросов |
+| `REQUEST_TIMEOUT` | Таймаут внешних запросов |
 | `MAX_RETRIES` | Повторы интеграционных операций |
 | `VK_API_VERSION` | Зафиксированная версия VK API |
+| `TRUST_PROXY_COUNT` | Сколько proxy-hop доверять через `ProxyFix` |
+| `PREFERRED_URL_SCHEME` | Схема для `url_for(..., _external=True)` |
+| `SESSION_COOKIE_SECURE` | Требовать HTTPS-only session cookie |
+| `SESSION_COOKIE_SAMESITE` | `Lax`/`Strict`/`None` для session cookie |
 
 ## PostgreSQL в Docker Compose
 
@@ -36,11 +40,19 @@ POSTGRES_PASSWORD=change-me-db-password
 DATABASE_URL=postgresql://sms_assistant:change-me-db-password@postgres:5432/sms_assistant
 OPENAI_API_KEY=your_openai_key
 LOG_LEVEL=INFO
-TIMEOUT=30
+REQUEST_TIMEOUT=30
 MAX_RETRIES=3
 VK_API_VERSION=5.139
 OPENAI_TEXT_MODEL=gpt-5
 OPENAI_IMAGE_MODEL=dall-e-3
+TRUST_PROXY_COUNT=1
+PREFERRED_URL_SCHEME=https
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_HTTPONLY=true
+SESSION_COOKIE_SAMESITE=Lax
+REMEMBER_COOKIE_SECURE=true
+REMEMBER_COOKIE_HTTPONLY=true
+REMEMBER_COOKIE_SAMESITE=Lax
 ```
 
 ## Legacy compatibility
@@ -51,19 +63,38 @@ OPENAI_IMAGE_MODEL=dall-e-3
 
 Через страницу `Settings` пользователь сохраняет:
 
-- `vk_api_key`
+- `vk_api_key` - сюда нужно вставлять именно `VK user access token`, а не `ключ сообщества`
 - `vk_group_id`
 
 Дополнительно приложение хранит метаданные последней проверки подключения и capability status.
+
+## Какой VK токен использовать
+
+Для проекта есть два принципиально разных варианта:
+
+| Что вставили в `vk_api_key` | Что получится |
+|-----------------------------|---------------|
+| `group/community token` | может работать проверка группы и часть текстовых сценариев, но wall photo upload обычно недоступен |
+| `user access token` с `wall, photos` | подходит для полноценного автопостинга поста с изображением |
+
+Практическое правило:
+
+1. для сценария `текст + картинка + автопост в VK` нужен `user access token`;
+2. `ключ сообщества` из раздела VK API не является корректной заменой;
+3. если в UI появляется сообщение про `wall photo upload`, в первую очередь проверьте тип токена, а не только список scope.
 
 ## Обязательные production-требования
 
 - `FLASK_SECRET_KEY` должен быть задан явно;
 - приложение не должно запускаться в production без корректного `DATABASE_URL`;
+- для HTTPS за reverse proxy задайте `TRUST_PROXY_COUNT` явно, иначе Flask не будет доверять `X-Forwarded-*` заголовкам;
+- в production по умолчанию включены `SESSION_COOKIE_SECURE=true` и `REMEMBER_COOKIE_SECURE=true`, поэтому TLS termination должен быть настроен корректно;
+- `PREFERRED_URL_SCHEME=https` следует сохранять для production, чтобы логин-redirect и внешние URL не деградировали до `http`;
 - миграции применяются через `flask db upgrade` в контейнере `web`.
 
 ## See Also
 
 - [Getting Started](getting-started.md) — запуск через Docker Compose.
+- [VK Integration](vk-integration.md) — подробное объяснение типов VK токенов.
 - [Security](security.md) — как обращаться с токенами и secret key.
 - [Architecture](architecture.md) — где конфиг используется в приложении.

@@ -28,7 +28,11 @@ class VKService:
         if payload and payload.get("members_count") is not None:
             return int(payload["members_count"])
 
-        collector = StatsCollector(vk_access_token=token, api_version=self._api_version())
+        collector = StatsCollector(
+            vk_access_token=token,
+            api_version=self._api_version(),
+            timeout=current_app.config.get("REQUEST_TIMEOUT"),
+        )
         return collector.get_group_members_count(fallback_group_id)
 
     def publish_post(self, token: str, group_id: int, text: str, image_url: Optional[str] = None) -> Optional[Dict[str, Any]]:

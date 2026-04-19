@@ -1,4 +1,4 @@
-[← Configuration](configuration.md) · [Back to README](../README.md) · [Testing →](testing.md)
+[← VK Integration](vk-integration.md) · [Back to README](../README.md) · [Testing →](testing.md)
 
 # Architecture
 
@@ -61,5 +61,6 @@
 ## See Also
 
 - [Configuration](configuration.md) — env-модель приложения.
+- [VK Integration](vk-integration.md) — требования к VK токенам и режимы деградации.
 - [Testing](testing.md) — что и как проверять.
 - [Security](security.md) — ограничения VK token и секретов.

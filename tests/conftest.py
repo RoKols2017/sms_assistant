@@ -16,11 +16,14 @@ from app.extensions import db
 def mock_environment():
     """Мок переменных окружения для всех тестов"""
     with patch.dict(os.environ, {
+        'FLASK_ENV': 'testing',
+        'FLASK_SECRET_KEY': 'test-secret-key',
         'OPENAI_API_KEY': 'test-openai-key',
         'VK_TOKEN': 'test-vk-token',
         'VK_GROUP_ID': '123456789',
         'TG_TOKEN': 'test-tg-token',
         'TG_CHAT_ID': '@test_channel',
+        'DATABASE_URL': 'sqlite:///:memory:',
         'LOG_LEVEL': 'INFO',
         'MAX_RETRIES': '3',
         'TIMEOUT': '30'

@@ -1,25 +1,10 @@
-"""Legacy-compatible environment configuration."""
+"""Legacy compatibility layer around the canonical Flask config module."""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from typing import Optional
 
-from dotenv import load_dotenv
-
-
-load_dotenv()
-
-
-def _to_optional_int(raw_value: Optional[str], field_name: str) -> Optional[int]:
-    if raw_value in (None, ""):
-        return None
-
-    try:
-        return int(raw_value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field_name} должен быть числом") from exc
+from app.config import get_env_int, get_env_optional_int
 
 
 @dataclass
@@ -34,18 +19,24 @@ class Config:
     strict: bool = True
 
     def __post_init__(self) -> None:
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.vk_token = os.getenv("VK_TOKEN")
-        self.vk_group_id = _to_optional_int(os.getenv("VK_GROUP_ID"), "VK_GROUP_ID")
-        self.telegram_token = os.getenv("TG_TOKEN")
-        self.telegram_chat_id = os.getenv("TG_CHAT_ID")
+        from app.config import BaseConfig
 
-        self.log_level = os.getenv("LOG_LEVEL", "INFO")
-        self.max_retries = int(os.getenv("MAX_RETRIES", "3"))
-        self.timeout = int(os.getenv("TIMEOUT", "30"))
-        self.openai_text_model = os.getenv("OPENAI_TEXT_MODEL", "gpt-5")
-        self.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "dall-e-3")
-        self.vk_api_version = os.getenv("VK_API_VERSION", "5.139")
+        runtime_config = BaseConfig.build()
+
+        self.openai_api_key = runtime_config["OPENAI_API_KEY"]
+        self.vk_token = runtime_config["VK_TOKEN"]
+        self.vk_group_id = get_env_optional_int("VK_GROUP_ID")
+        self.telegram_token = runtime_config["TG_TOKEN"]
+        self.telegram_chat_id = runtime_config["TG_CHAT_ID"]
+
+        self.log_level = runtime_config["LOG_LEVEL"]
+        self.max_retries = get_env_int("MAX_RETRIES", 3)
+        legacy_timeout = get_env_int("TIMEOUT", runtime_config["REQUEST_TIMEOUT"])
+        self.timeout = legacy_timeout
+        self.request_timeout = runtime_config["REQUEST_TIMEOUT"]
+        self.openai_text_model = runtime_config["OPENAI_TEXT_MODEL"]
+        self.openai_image_model = runtime_config["OPENAI_IMAGE_MODEL"]
+        self.vk_api_version = runtime_config["VK_API_VERSION"]
 
         if self.strict:
             self._validate_required_values()

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sms_assistant}
       POSTGRES_USER: ${POSTGRES_USER:-sms_assistant}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-db-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,16 +23,28 @@ services:
         condition: service_healthy
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
-      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-insecure-secret-key}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://sms_assistant:change-me-db-password@postgres:5432/sms_assistant}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-local-dev-secret-key}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://sms_assistant:local-dev-db-password@postgres:5432/sms_assistant}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_TEXT_MODEL: ${OPENAI_TEXT_MODEL:-gpt-5}
       OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-dall-e-3}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      TIMEOUT: ${TIMEOUT:-30}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-30}
       VK_API_VERSION: ${VK_API_VERSION:-5.139}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      REMEMBER_COOKIE_SECURE: ${REMEMBER_COOKIE_SECURE:-true}
+      PREFERRED_URL_SCHEME: ${PREFERRED_URL_SCHEME:-https}
+      PORT: ${PORT:-8000}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:${PORT:-8000}/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   postgres_data:

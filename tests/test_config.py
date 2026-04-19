@@ -1,14 +1,13 @@
-"""
-Тесты для модуля конфигурации
-"""
+import os
+from unittest.mock import patch
 
 import pytest
-import os
-from unittest.mock import patch, MagicMock
+
+from app.config import DevelopmentConfig, ProductionConfig, TestConfig as RuntimeTestConfig
 from config import Config
 
 
-class TestConfig:
+class TestLegacyConfig:
     """Тесты для класса Config"""
     
     def test_config_initialization_success(self):
@@ -42,7 +41,7 @@ class TestConfig:
             'TG_TOKEN': 'test-token',
             'TG_CHAT_ID': '@test'
         }):
-            with pytest.raises(ValueError, match="VK_GROUP_ID должен быть числом"):
+            with pytest.raises(ValueError, match="VK_GROUP_ID must be an integer"):
                 Config()
     
     def test_config_default_values(self):
@@ -52,7 +51,9 @@ class TestConfig:
             'VK_TOKEN': 'test-token',
             'VK_GROUP_ID': '123456',
             'TG_TOKEN': 'test-token',
-            'TG_CHAT_ID': '@test'
+            'TG_CHAT_ID': '@test',
+            'OPENAI_TEXT_MODEL': '',
+            'OPENAI_IMAGE_MODEL': '',
         }):
             config = Config()
             assert config.log_level == 'INFO'
@@ -82,3 +83,57 @@ class TestConfig:
             assert config.openai_text_model == 'gpt-4o'
             assert config.openai_image_model == 'dall-e-2'
 
+
+def test_runtime_config_builds_production_settings_from_env():
+    with patch.dict(os.environ, {
+        'FLASK_SECRET_KEY': 'prod-secret',
+        'DATABASE_URL': 'postgresql://user:secret@db:5432/smm_assistant',
+        'OPENAI_API_KEY': 'openai-key',
+        'VK_TOKEN': 'vk-token',
+        'VK_GROUP_ID': '42',
+        'TG_TOKEN': 'tg-token',
+        'TG_CHAT_ID': '@channel',
+        'REQUEST_TIMEOUT': '45',
+        'WTF_CSRF_ENABLED': 'true',
+    }, clear=True):
+        runtime_config = ProductionConfig.build()
+
+    assert runtime_config['SECRET_KEY'] == 'prod-secret'
+    assert runtime_config['SQLALCHEMY_DATABASE_URI'] == 'postgresql://user:secret@db:5432/smm_assistant'
+    assert runtime_config['REQUEST_TIMEOUT'] == 45
+    assert runtime_config['WTF_CSRF_ENABLED'] is True
+    assert runtime_config['VK_GROUP_ID'] == 42
+
+
+def test_runtime_config_uses_test_defaults():
+    with patch.dict(os.environ, {}, clear=True):
+        runtime_config = RuntimeTestConfig.build()
+
+    assert runtime_config['TESTING'] is True
+    assert runtime_config['SQLALCHEMY_DATABASE_URI'] == 'sqlite:///:memory:'
+    assert runtime_config['WTF_CSRF_ENABLED'] is False
+
+
+def test_runtime_config_uses_development_fallback_database():
+    with patch.dict(os.environ, {'FLASK_SECRET_KEY': 'dev-secret'}, clear=True):
+        runtime_config = DevelopmentConfig.build()
+
+    assert runtime_config['SQLALCHEMY_DATABASE_URI'] == 'sqlite:///smm_assistant-dev.db'
+
+
+def test_runtime_config_enables_secure_cookies_in_production():
+    with patch.dict(os.environ, {}, clear=True):
+        runtime_config = ProductionConfig.build()
+
+    assert runtime_config['SESSION_COOKIE_SECURE'] is True
+    assert runtime_config['REMEMBER_COOKIE_SECURE'] is True
+    assert runtime_config['PREFERRED_URL_SCHEME'] == 'https'
+
+
+def test_runtime_config_disables_secure_cookies_for_tests():
+    with patch.dict(os.environ, {}, clear=True):
+        runtime_config = RuntimeTestConfig.build()
+
+    assert runtime_config['SESSION_COOKIE_SECURE'] is False
+    assert runtime_config['REMEMBER_COOKIE_SECURE'] is False
+    assert runtime_config['PREFERRED_URL_SCHEME'] == 'http'

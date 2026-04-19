@@ -1,4 +1,5 @@
 .git
+.gitignore
 .pytest_cache
 __pycache__
 *.pyc
@@ -14,4 +15,10 @@ node_modules
 docs-html
 tests/__pycache__
 .opencode
+.ai-factory/
 .ai-factory.json
+.cursor/
+.env
+.env.*
+!.env.example
+*.db

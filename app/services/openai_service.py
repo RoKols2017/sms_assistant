@@ -19,6 +19,7 @@ class OpenAIService:
             topic=topic,
             openai_key=current_app.config.get("OPENAI_API_KEY"),
             model=current_app.config.get("OPENAI_TEXT_MODEL"),
+            timeout=current_app.config.get("REQUEST_TIMEOUT"),
         )
         result = generator.generate_post()
         if not result:
@@ -31,6 +32,7 @@ class OpenAIService:
         generator = ImageGenerator(
             openai_key=current_app.config.get("OPENAI_API_KEY"),
             model=current_app.config.get("OPENAI_IMAGE_MODEL"),
+            timeout=current_app.config.get("REQUEST_TIMEOUT"),
         )
         result = generator.generate_image(prompt)
         if not result:

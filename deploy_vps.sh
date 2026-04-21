@@ -14,6 +14,24 @@ require_command() {
     fi
 }
 
+validate_domain() {
+    local domain="$1"
+
+    if [[ ! "$domain" =~ ^[A-Za-z0-9.-]+$ ]]; then
+        return 1
+    fi
+
+    if [[ "$domain" == .* || "$domain" == *. || "$domain" == -* || "$domain" == *- ]]; then
+        return 1
+    fi
+
+    if [[ "$domain" == *..* || "$domain" != *.* ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
 get_env_value() {
     local key="$1"
 
@@ -101,6 +119,11 @@ main() {
 
     if [ -z "$app_domain" ]; then
         printf 'Domain is required.\n' >&2
+        exit 1
+    fi
+
+    if ! validate_domain "$app_domain"; then
+        printf 'Invalid domain: %s\n' "$app_domain" >&2
         exit 1
     fi
 
